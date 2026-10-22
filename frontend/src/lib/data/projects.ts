@@ -77,7 +77,7 @@ function mapProject(p: ApiProject, index: number): Project {
     html_url: p.html_url || '',
     created_at: p.created_at || '',
     updated_at: p.updated_at || '',
-    img: p.owner?.avatar_url || '/assets/projects/miniyotas.png',
+    img: (p.image_url as string) || (p.preview_image as string) || p.owner?.avatar_url || '/assets/projects/miniyotas.png',
     contributors: p.owner?.avatar_url ? [p.owner.avatar_url] : ['/assets/avatars/a1.png'],
   };
 }
