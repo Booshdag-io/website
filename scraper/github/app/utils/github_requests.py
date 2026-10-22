@@ -183,3 +183,27 @@ class GithubClient:
             return schk[1]
 
         return r.json()
+
+    def get_repo_readme_image(self, owner: str, repo_name: str, default_branch: str = "main") -> Union[str, None]:
+        """
+        Fetch repo readme and extract the first image url if present
+        """
+        try:
+            url = f"{self.GITHUB_API}/repos/{owner}/{repo_name}/readme"
+            r = self.session.get(url)
+            if r.status_code == 200:
+                import base64 as b64, re
+                data = r.json()
+                content = b64.b64decode(data.get("content", "")).decode("utf-8", errors="ignore")
+                m = re.search(r'!\[.*?\]\((https?://[^\s\)]+|\/[^\s\)]+|[^\s\)]+\.(?:png|jpg|jpeg|gif|webp|svg))\)', content, re.IGNORECASE)
+                if not m:
+                    m = re.search(r'<img[^>]+src=["\'](https?://[^"\']+|\/[^"\']+|[^"\']+\.(?:png|jpg|jpeg|gif|webp|svg))["\']', content, re.IGNORECASE)
+                if m:
+                    img_url = m.group(1)
+                    if not img_url.startswith("http"):
+                        img_path = img_url.lstrip("./")
+                        img_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/{default_branch}/{img_path}"
+                    return img_url
+        except Exception as e:
+            self.logger.warning(f"Failed to fetch readme image for {owner}/{repo_name}: {e}")
+        return None
