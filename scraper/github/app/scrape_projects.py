@@ -48,6 +48,10 @@ def on_pageloaded_success(page):
             for r in repos:
                 print("storing project {} ...".format(r["name"]))
                 convert_time_fields_to_date_time(r)
+                default_branch = r.get("default_branch", "main")
+                preview_img = github_cli.get_repo_readme_image(user_name, r["name"], default_branch)
+                if preview_img:
+                    r["image_url"] = preview_img
                 store_project(r)
                 print("project {} stored".format(r["name"]))
             print("user {} relevant public repositories stored !".format(user_name))
