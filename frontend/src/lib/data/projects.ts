@@ -49,6 +49,22 @@ function formatStars(n: number): string {
 }
 
 /* ── Map API project → frontend Project ── */
+function isAllowedImageUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  if (url.startsWith('/')) return true;
+  try {
+    const u = new URL(url);
+    return (
+      u.protocol === 'https:' &&
+      (u.hostname === 'github.com' ||
+        u.hostname.endsWith('.github.com') ||
+        u.hostname.endsWith('.githubusercontent.com'))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function mapProject(p: ApiProject, index: number): Project {
   const lang = p.language || '';
   const stars = p.stargazers_count ?? 0;
@@ -77,7 +93,10 @@ function mapProject(p: ApiProject, index: number): Project {
     html_url: p.html_url || '',
     created_at: p.created_at || '',
     updated_at: p.updated_at || '',
-    img: (p.image_url as string) || (p.preview_image as string) || p.owner?.avatar_url || '/assets/projects/miniyotas.png',
+    img: (() => {
+      const preview = (p.image_url as string) || (p.preview_image as string);
+      return isAllowedImageUrl(preview) ? preview : (p.owner?.avatar_url || '/assets/projects/miniyotas.png');
+    })(),
     contributors: p.owner?.avatar_url ? [p.owner.avatar_url] : ['/assets/avatars/a1.png'],
   };
 }
