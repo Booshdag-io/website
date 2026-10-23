@@ -192,18 +192,52 @@ class GithubClient:
             url = f"{self.GITHUB_API}/repos/{owner}/{repo_name}/readme"
             r = self.session.get(url)
             if r.status_code == 200:
-                import base64 as b64, re
+                import base64 as b64, posixpath, re
                 data = r.json()
                 content = b64.b64decode(data.get("content", "")).decode("utf-8", errors="ignore")
-                m = re.search(r'!\[.*?\]\((https?://[^\s\)]+|\/[^\s\)]+|[^\s\)]+\.(?:png|jpg|jpeg|gif|webp|svg))\)', content, re.IGNORECASE)
-                if not m:
-                    m = re.search(r'<img[^>]+src=["\'](https?://[^"\']+|\/[^"\']+|[^"\']+\.(?:png|jpg|jpeg|gif|webp|svg))["\']', content, re.IGNORECASE)
-                if m:
-                    img_url = m.group(1)
-                    if not img_url.startswith("http"):
-                        img_path = img_url.lstrip("./")
-                        img_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/{default_branch}/{img_path}"
-                    return img_url
+                readme_path = data.get("path", "README.md")
+                readme_dir = posixpath.dirname(readme_path)
+
+                md_pattern = re.compile(
+                    r"!\[.*?\]\(\s*(?:<([^>]+)>|([^\s\)\'\"]+))(?:\s+[\"\'][^\"\']*[\"\'])?\s*\)",
+                    re.IGNORECASE,
+                )
+                html_pattern = re.compile(
+                    r"<img\s+[^>]*?src=[\"\']([^\"\']+)[\"\']",
+                    re.IGNORECASE,
+                )
+
+                candidates = []
+                for m in md_pattern.finditer(content):
+                    img_src = m.group(1) or m.group(2)
+                    if img_src:
+                        candidates.append((m.start(), img_src.strip()))
+
+                for m in html_pattern.finditer(content):
+                    img_src = m.group(1)
+                    if img_src:
+                        candidates.append((m.start(), img_src.strip()))
+
+                if not candidates:
+                    return None
+
+                candidates.sort(key=lambda x: x[0])
+                image_exts = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
+
+                for _, img_url in candidates:
+                    clean_url = img_url.split("?")[0].split("#")[0]
+                    if not clean_url.lower().endswith(image_exts):
+                        continue
+
+                    if img_url.startswith(("http://", "https://")):
+                        return img_url
+
+                    if img_url.startswith("/"):
+                        rel_path = img_url.lstrip("/")
+                    else:
+                        rel_path = posixpath.normpath(posixpath.join(readme_dir, img_url))
+
+                    return f"https://raw.githubusercontent.com/{owner}/{repo_name}/{default_branch}/{rel_path}"
         except Exception as e:
             self.logger.warning(f"Failed to fetch readme image for {owner}/{repo_name}: {e}")
         return None
