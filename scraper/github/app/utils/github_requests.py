@@ -2,6 +2,10 @@
 # github requests functions
 
 import requests
+import base64
+import posixpath
+import re
+from urllib.parse import urlsplit
 from typing import List, Dict, Tuple, Union, Callable, Any
 import logging
 from app.settings import GITHUB_API, GITHUB_TOKEN
@@ -192,9 +196,8 @@ class GithubClient:
             url = f"{self.GITHUB_API}/repos/{owner}/{repo_name}/readme"
             r = self.session.get(url)
             if r.status_code == 200:
-                import base64 as b64, posixpath, re
                 data = r.json()
-                content = b64.b64decode(data.get("content", "")).decode("utf-8", errors="ignore")
+                content = base64.b64decode(data.get("content", "")).decode("utf-8", errors="ignore")
                 readme_path = data.get("path", "README.md")
                 readme_dir = posixpath.dirname(readme_path)
 
@@ -222,15 +225,16 @@ class GithubClient:
                     return None
 
                 candidates.sort(key=lambda x: x[0])
-                image_exts = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
-
                 for _, img_url in candidates:
-                    clean_url = img_url.split("?")[0].split("#")[0]
-                    if not clean_url.lower().endswith(image_exts):
+                    if any(char in img_url for char in ("\r", "\n", "\x00")):
                         continue
-
-                    if img_url.startswith(("http://", "https://")):
+                    parsed = urlsplit(img_url)
+                    if parsed.scheme.lower() in ("http", "https"):
                         return img_url
+                    if parsed.scheme:
+                        continue
+                    if img_url.startswith("//"):
+                        return "https:" + img_url
 
                     if img_url.startswith("/"):
                         rel_path = img_url.lstrip("/")

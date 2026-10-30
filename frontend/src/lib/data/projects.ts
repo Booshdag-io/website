@@ -51,11 +51,11 @@ function formatStars(n: number): string {
 /* ── Map API project → frontend Project ── */
 function isAllowedImageUrl(url: string | undefined): boolean {
   if (!url) return false;
-  if (url.startsWith('/')) return true;
+  if (url.startsWith('/')) return url.startsWith('/assets/');
   try {
     const u = new URL(url);
     return (
-      u.protocol === 'https:' &&
+      u.protocol === 'https:' && u.port === '' && !u.username && !u.password &&
       (u.hostname === 'github.com' ||
         u.hostname.endsWith('.github.com') ||
         u.hostname.endsWith('.githubusercontent.com'))
